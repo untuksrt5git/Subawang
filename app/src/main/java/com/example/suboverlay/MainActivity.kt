@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
 import java.util.Locale
 
 /** Batas ukuran berkas subtitle, agar membaca berkas besar tidak menghabiskan memori. */
@@ -175,7 +176,7 @@ class MainActivity : AppCompatActivity() {
                 throw e
             } catch (t: Throwable) {
                 // Kegagalan tak terduga harus jadi pesan, bukan menutup aplikasi.
-                ImportOutcome(ImportResult.READ_FAILED, "-", 0, describe(t))
+                ImportOutcome(ImportResult.READ_FAILED, "-", 0, "impor: ${describe(t)}")
             }
 
             when (outcome.result) {
@@ -192,10 +193,10 @@ class MainActivity : AppCompatActivity() {
 
                 ImportResult.READ_FAILED -> {
                     val detail = outcome.reason.ifBlank { "tidak diketahui" }
-                    val message = getString(R.string.read_failed_detail, detail)
                     Prefs.setLastError(this@MainActivity, detail)
-                    tvFile.text = message
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                    tvFile.text = getString(R.string.read_failed_detail, detail)
+                    val short = detail.substringBefore('\n')
+                    Toast.makeText(this@MainActivity, short, Toast.LENGTH_LONG).show()
                 }
 
                 ImportResult.NO_CUES ->
@@ -217,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         val raw = try {
             SrtParser.decode(target.readBytes())
         } catch (t: Throwable) {
-            return ImportOutcome(ImportResult.READ_FAILED, name, 0, describe(t))
+            return ImportOutcome(ImportResult.READ_FAILED, name, 0, "baca: ${describe(t)}")
         }
 
         val parsed = try {
@@ -233,27 +234,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Menyalin berkas dari URI pilihan pengguna.
-     * Mengembalikan null bila berhasil, atau keterangan kegagalan
-     * (kelas exception + pesannya) supaya penyebabnya terbaca di layar.
+     * Menyalin berkas dari URI pilihan pengguna dengan empat jalur baca bertingkat.
+     * Mengembalikan null bila salah satu berhasil, atau kumpulan pesan kegagalan
+     * (beserta rantai penyebabnya) supaya penyebabnya terbaca di layar.
      */
     private fun copyFrom(uri: Uri, target: File): String? {
-        tryRead(uri, target)?.let { firstError ->
-            // Sebagian penyedia hanya membuka berkas setelah izin persisten diminta.
-            try {
-                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Throwable) {
-                // Izin persisten tidak tersedia; tetap dicoba sekali lagi.
-            }
-            return tryRead(uri, target) ?: firstError
+        val errors = ArrayList<String>()
+
+        fun attempt(label: String, error: String?): Boolean {
+            if (error == null) return true
+            errors.add("$label → $error")
+            return false
         }
-        return null
+
+        if (attempt("stream", streamCopy(uri, target))) return null
+
+        // Sebagian penyedia baru memberi akses setelah izin persisten diminta.
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Throwable) {
+            // Izin persisten tidak tersedia; lanjut ke jalur berikutnya.
+        }
+        if (attempt("stream+izin", streamCopy(uri, target))) return null
+        if (attempt("descriptor", descriptorCopy(uri, target))) return null
+        if (attempt("jalur", pathCopy(uri, target))) return null
+
+        return errors.joinToString("; ").take(400)
     }
 
-    private fun tryRead(uri: Uri, target: File): String? {
+    private fun streamCopy(uri: Uri, target: File): String? {
         return try {
             val input = contentResolver.openInputStream(uri)
-                ?: return "penyedia tidak menyediakan berkas"
+                ?: return "penyedia tidak memberi berkas"
             input.use { stream -> target.outputStream().use { out -> stream.copyTo(out) } }
             null
         } catch (t: Throwable) {
@@ -261,8 +273,71 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun describe(t: Throwable): String =
-        "${t.javaClass.simpleName}: ${t.message?.take(80) ?: "-"}"
+    private fun descriptorCopy(uri: Uri, target: File): String? {
+        return try {
+            val pfd = contentResolver.openFileDescriptor(uri, "r")
+                ?: return "descriptor kosong"
+            pfd.use { descriptor ->
+                FileInputStream(descriptor.fileDescriptor).use { stream ->
+                    target.outputStream().use { out -> stream.copyTo(out) }
+                }
+            }
+            null
+        } catch (t: Throwable) {
+            describe(t)
+        }
+    }
+
+    /** Membaca langsung dari lokasi berkas, melewati penyedia dokumen sepenuhnya. */
+    private fun pathCopy(uri: Uri, target: File): String? {
+        val path = try {
+            if (uri.scheme == "file") {
+                uri.path
+            } else {
+                contentResolver.query(uri, arrayOf("_data"), null, null, null)
+                    ?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+                    }
+            }
+        } catch (t: Throwable) {
+            return describe(t)
+        } ?: return "lokasi berkas tidak tersedia"
+
+        val source = File(path)
+        if (!source.isFile) return "lokasi tidak bisa dibaca"
+        return try {
+            source.inputStream().use { stream -> target.outputStream().use { out -> stream.copyTo(out) } }
+            null
+        } catch (t: Throwable) {
+            describe(t)
+        }
+    }
+
+    /** Kelas + pesan tiap penyebab dalam rantai, plus beberapa bingkai terdalam. */
+    private fun describe(t: Throwable): String {
+        val chain = StringBuilder()
+        var current: Throwable? = t
+        var guard = 0
+        while (current != null && guard < 6) {
+            if (chain.isNotEmpty()) chain.append(" ← ")
+            chain.append(current.javaClass.simpleName)
+            val message = current.message?.trim()
+            if (!message.isNullOrEmpty()) chain.append(": ").append(message.take(120))
+            if (chain.length > 300) break
+            val next = (current as? ExceptionInInitializerError)?.exception ?: current.cause
+            if (next == null || next === current) break
+            current = next
+            guard++
+        }
+
+        val deepest = generateSequence(t) {
+            (it as? ExceptionInInitializerError)?.exception ?: it.cause
+        }.lastOrNull() ?: t
+        val frames = deepest.stackTrace.take(4).joinToString("\n") { frame ->
+            "  ${frame.className.substringAfterLast('.')}.${frame.methodName}:${frame.lineNumber}"
+        }
+        return if (frames.isEmpty()) chain.toString() else "$chain\n$frames"
+    }
 
     private fun displayName(uri: Uri): String {
         val fromProvider = try {
