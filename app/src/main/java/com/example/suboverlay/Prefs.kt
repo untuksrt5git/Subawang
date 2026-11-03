@@ -12,6 +12,7 @@ object Prefs {
     private const val FILE = "subtitle_overlay_prefs"
 
     private const val KEY_SRT_PATH = "srt_path"
+    private const val KEY_SRT_NAME = "srt_name"
     private const val KEY_OFFSET = "offset_ms"
     private const val KEY_AUTO_FOLLOW = "auto_follow"
     private const val KEY_FONT_SP = "font_sp"
@@ -25,6 +26,12 @@ object Prefs {
 
     fun setSrtPath(ctx: Context, path: String?) {
         prefs(ctx).edit().putString(KEY_SRT_PATH, path).apply()
+    }
+
+    fun srtName(ctx: Context): String? = prefs(ctx).getString(KEY_SRT_NAME, null)
+
+    fun setSrtName(ctx: Context, name: String?) {
+        prefs(ctx).edit().putString(KEY_SRT_NAME, name).apply()
     }
 
     fun offsetMs(ctx: Context): Long = prefs(ctx).getLong(KEY_OFFSET, 0L)

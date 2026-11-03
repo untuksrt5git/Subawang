@@ -20,6 +20,7 @@
     <string name="btn_reset_offset">Reset offset</string>
     <string name="btn_reset_clock">Reset ke 00:00</string>
 
+    <string name="file_default_name">subtitle</string>
     <string name="file_none">Belum ada subtitle dipilih</string>
     <string name="file_info">%1$s • %2$d cue</string>
     <string name="file_info_no_count">%1$s</string>
@@ -43,7 +44,9 @@
     <string name="source_manual">jam manual</string>
 
     <string name="toast_pick_file_first">Pilih berkas subtitle dulu.</string>
-    <string name="toast_parse_failed">Berkas tidak bisa dibaca sebagai subtitle SRT/VTT.</string>
+    <string name="toast_read_failed">Berkas tidak bisa dibuka. Coba pilih ulang dari folder Download.</string>
+    <string name="toast_file_empty">Berkas yang dipilih kosong (0 byte).</string>
+    <string name="toast_no_cues">Tidak ditemukan baris waktu subtitle di berkas ini. Format yang didukung: SRT (00:00:12,500 --&gt; 00:00:15,000) atau WebVTT. Berkas .ass/.ssa dan .zip belum didukung.</string>
     <string name="toast_need_notif_access">Aktifkan akses notifikasi untuk Subtileawang, lalu kembali ke aplikasi ini.</string>
     <string name="toast_open_settings_failed">Pengaturan tidak bisa dibuka di perangkat ini.</string>
 

@@ -6,14 +6,17 @@ package com.example.suboverlay
  * Kedua format memakai baris waktu:
  *   SRT : 00:00:12,500 --> 00:00:15,000
  *   VTT : 00:12.500 --> 00:15.000  (jam opsional)
- * Perbedaan lain (header "WEBVTT", nomor cue, tag HTML) diabaikan.
+ * Varian yang juga diterima: tanpa milidetik (`00:00:12 --> 00:00:15`),
+ * pemisah titik atau koma, spasi tak-putus, dan nomor cue/header `WEBVTT`.
  */
 object SrtParser {
 
     data class Cue(val startMs: Long, val endMs: Long, val text: String)
 
     private val TIME_LINE = Regex(
-        """(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{1,3})\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{1,3})"""
+        """(?:(\d{1,3}):)?(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?""" +
+            """[\s\u00A0]*-->[\s\u00A0]*""" +
+            """(?:(\d{1,3}):)?(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?"""
     )
     private val HTML_TAG = Regex("<[^>]*>")
     private val ASS_TAG = Regex("""\{\\[^}]*}""")
@@ -53,6 +56,12 @@ object SrtParser {
         return cues
     }
 
+    /** Jumlah baris waktu yang ditemukan, dipakai untuk pesan diagnostik. */
+    fun countTimestampLines(raw: String): Int =
+        raw.replace("\r\n", "\n").replace('\r', '\n')
+            .split('\n')
+            .count { TIME_LINE.containsMatchIn(it) }
+
     fun decode(bytes: ByteArray): String {
         // BOM UTF-16
         if (bytes.size >= 2) {
@@ -60,6 +69,15 @@ object SrtParser {
             val b1 = bytes[1].toInt() and 0xFF
             if (b0 == 0xFF && b1 == 0xFE) return String(bytes, Charsets.UTF_16LE)
             if (b0 == 0xFE && b1 == 0xFF) return String(bytes, Charsets.UTF_16BE)
+        }
+        // UTF-16 tanpa BOM: byte NUL berselang-seling
+        if (bytes.size >= 4) {
+            val b0 = bytes[0].toInt()
+            val b1 = bytes[1].toInt()
+            val b2 = bytes[2].toInt()
+            val b3 = bytes[3].toInt()
+            if (b1 == 0 && b3 == 0 && b0 != 0) return String(bytes, Charsets.UTF_16LE)
+            if (b0 == 0 && b2 == 0 && b1 != 0) return String(bytes, Charsets.UTF_16BE)
         }
         // UTF-8 ketat, lalu cp1252 (umum untuk subtitle lama), lalu latin-1
         return try {
@@ -90,6 +108,7 @@ object SrtParser {
         val m = minutes.toLongOrNull() ?: 0L
         val s = seconds.toLongOrNull() ?: 0L
         val millis = when (fraction.length) {
+            0 -> 0L
             1 -> fraction.toLong() * 100
             2 -> fraction.toLong() * 10
             else -> fraction.take(3).padEnd(3, '0').toLong()

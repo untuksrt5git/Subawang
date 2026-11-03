@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.widget.Button
 import android.widget.CheckBox
@@ -162,28 +163,72 @@ class MainActivity : AppCompatActivity() {
 
     private fun importSubtitle(uri: Uri) {
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val dir = File(filesDir, "subtitles").apply { mkdirs() }
-                    val target = File(dir, "current_subtitle")
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        target.outputStream().use { output -> input.copyTo(output) }
-                    } ?: return@runCatching null
-                    val parsed = SrtParser.parse(SrtParser.decode(target.readBytes()))
-                    if (parsed.isEmpty()) return@runCatching null
-                    Prefs.setSrtPath(this@MainActivity, target.absolutePath)
-                    parsed.size
-                }.getOrNull()
-            }
+            val outcome = withContext(Dispatchers.IO) { readSubtitle(uri) }
+            when (outcome.result) {
+                ImportResult.OK -> {
+                    tvFile.text = getString(R.string.file_info, outcome.name, outcome.cueCount)
+                    OverlayService.command(this@MainActivity, OverlayService.ACTION_RELOAD)
+                }
 
-            if (result == null) {
-                Toast.makeText(this@MainActivity, R.string.toast_parse_failed, Toast.LENGTH_LONG).show()
-                return@launch
+                ImportResult.EMPTY_FILE ->
+                    Toast.makeText(this@MainActivity, R.string.toast_file_empty, Toast.LENGTH_LONG).show()
+
+                ImportResult.READ_FAILED ->
+                    Toast.makeText(this@MainActivity, R.string.toast_read_failed, Toast.LENGTH_LONG).show()
+
+                ImportResult.NO_CUES ->
+                    Toast.makeText(this@MainActivity, R.string.toast_no_cues, Toast.LENGTH_LONG).show()
             }
-            tvFile.text = getString(R.string.file_info, File(Prefs.srtPath(this@MainActivity)!!).name, result)
-            OverlayService.command(this@MainActivity, OverlayService.ACTION_RELOAD)
         }
     }
+
+    /** Menyalin berkas lalu mem-parse, dengan hasil yang membedakan penyebab kegagalan. */
+    private fun readSubtitle(uri: Uri): ImportOutcome {
+        val name = displayName(uri)
+        val target = File(File(filesDir, "subtitles").apply { mkdirs() }, "current_subtitle")
+
+        val copied = try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } != null
+        } catch (_: Exception) {
+            false
+        }
+        if (!copied) return ImportOutcome(ImportResult.READ_FAILED, name, 0)
+        if (target.length() == 0L) return ImportOutcome(ImportResult.EMPTY_FILE, name, 0)
+
+        val raw = try {
+            SrtParser.decode(target.readBytes())
+        } catch (_: Exception) {
+            return ImportOutcome(ImportResult.READ_FAILED, name, 0)
+        }
+
+        val parsed = SrtParser.parse(raw)
+        if (parsed.isEmpty()) return ImportOutcome(ImportResult.NO_CUES, name, 0)
+
+        Prefs.setSrtPath(this, target.absolutePath)
+        Prefs.setSrtName(this, name)
+        return ImportOutcome(ImportResult.OK, name, parsed.size)
+    }
+
+    private fun displayName(uri: Uri): String {
+        val fromProvider = try {
+            contentResolver
+                .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        } catch (_: Exception) {
+            null
+        }
+        return fromProvider ?: uri.lastPathSegment ?: getString(R.string.file_default_name)
+    }
+
+    private enum class ImportResult { OK, EMPTY_FILE, READ_FAILED, NO_CUES }
+
+    private data class ImportOutcome(
+        val result: ImportResult,
+        val name: String,
+        val cueCount: Int
+    )
 
     private fun toggleOverlay() {
         if (overlayVisible) {
@@ -310,7 +355,7 @@ class MainActivity : AppCompatActivity() {
         tvFile.text = if (path == null) {
             getString(R.string.file_none)
         } else {
-            getString(R.string.file_info_no_count, File(path).name)
+            getString(R.string.file_info_no_count, Prefs.srtName(this) ?: File(path).name)
         }
         tvPosition.text = formatTime(OverlayService.state.value.positionMs)
         tvOffset.text = formatOffset(Prefs.offsetMs(this))

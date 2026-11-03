@@ -347,7 +347,7 @@ class OverlayService : Service() {
         val snap = MediaSessionBridge.snapshot()
         _state.value = OverlayState(
             visible = subtitleView != null,
-            srtName = Prefs.srtPath(this)?.let { File(it).name },
+            srtName = Prefs.srtName(this) ?: Prefs.srtPath(this)?.let { File(it).name },
             cueCount = cues.size,
             autoFollow = autoFollow,
             autoAvailable = MediaSessionBridge.available,
