@@ -18,6 +18,7 @@ object Prefs {
     private const val KEY_FONT_SP = "font_sp"
     private const val KEY_Y_FRACTION = "y_fraction"
     private const val KEY_BG_ALPHA = "bg_alpha"
+    private const val KEY_LAST_ERROR = "last_error"
 
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -32,6 +33,13 @@ object Prefs {
 
     fun setSrtName(ctx: Context, name: String?) {
         prefs(ctx).edit().putString(KEY_SRT_NAME, name).apply()
+    }
+
+    /** Keterangan kegagalan impor terakhir, ditampilkan di kartu berkas. */
+    fun lastError(ctx: Context): String? = prefs(ctx).getString(KEY_LAST_ERROR, null)
+
+    fun setLastError(ctx: Context, value: String?) {
+        prefs(ctx).edit().putString(KEY_LAST_ERROR, value).apply()
     }
 
     fun offsetMs(ctx: Context): Long = prefs(ctx).getLong(KEY_OFFSET, 0L)

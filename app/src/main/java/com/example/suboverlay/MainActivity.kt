@@ -167,13 +167,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun importSubtitle(uri: Uri) {
         lifecycleScope.launch {
+            Prefs.setLastError(this@MainActivity, null)
+
             val outcome = try {
                 withContext(Dispatchers.IO) { readSubtitle(uri) }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
                 // Kegagalan tak terduga harus jadi pesan, bukan menutup aplikasi.
-                ImportOutcome(ImportResult.READ_FAILED, "-", 0)
+                ImportOutcome(ImportResult.READ_FAILED, "-", 0, describe(t))
             }
 
             when (outcome.result) {
@@ -188,8 +190,13 @@ class MainActivity : AppCompatActivity() {
                 ImportResult.TOO_LARGE ->
                     Toast.makeText(this@MainActivity, R.string.toast_file_too_large, Toast.LENGTH_LONG).show()
 
-                ImportResult.READ_FAILED ->
-                    Toast.makeText(this@MainActivity, R.string.toast_read_failed, Toast.LENGTH_LONG).show()
+                ImportResult.READ_FAILED -> {
+                    val detail = outcome.reason.ifBlank { "tidak diketahui" }
+                    val message = getString(R.string.read_failed_detail, detail)
+                    Prefs.setLastError(this@MainActivity, detail)
+                    tvFile.text = message
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                }
 
                 ImportResult.NO_CUES ->
                     Toast.makeText(this@MainActivity, R.string.toast_no_cues, Toast.LENGTH_LONG).show()
@@ -202,21 +209,15 @@ class MainActivity : AppCompatActivity() {
         val name = displayName(uri)
         val target = File(File(filesDir, "subtitles").apply { mkdirs() }, "current_subtitle")
 
-        val copied = try {
-            contentResolver.openInputStream(uri)?.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
-            } != null
-        } catch (_: Throwable) {
-            false
-        }
-        if (!copied) return ImportOutcome(ImportResult.READ_FAILED, name, 0)
+        val copyError = copyFrom(uri, target)
+        if (copyError != null) return ImportOutcome(ImportResult.READ_FAILED, name, 0, copyError)
         if (target.length() == 0L) return ImportOutcome(ImportResult.EMPTY_FILE, name, 0)
         if (target.length() > MAX_SRT_BYTES) return ImportOutcome(ImportResult.TOO_LARGE, name, 0)
 
         val raw = try {
             SrtParser.decode(target.readBytes())
-        } catch (_: Throwable) {
-            return ImportOutcome(ImportResult.READ_FAILED, name, 0)
+        } catch (t: Throwable) {
+            return ImportOutcome(ImportResult.READ_FAILED, name, 0, describe(t))
         }
 
         val parsed = try {
@@ -230,6 +231,38 @@ class MainActivity : AppCompatActivity() {
         Prefs.setSrtName(this, name)
         return ImportOutcome(ImportResult.OK, name, parsed.size)
     }
+
+    /**
+     * Menyalin berkas dari URI pilihan pengguna.
+     * Mengembalikan null bila berhasil, atau keterangan kegagalan
+     * (kelas exception + pesannya) supaya penyebabnya terbaca di layar.
+     */
+    private fun copyFrom(uri: Uri, target: File): String? {
+        tryRead(uri, target)?.let { firstError ->
+            // Sebagian penyedia hanya membuka berkas setelah izin persisten diminta.
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Throwable) {
+                // Izin persisten tidak tersedia; tetap dicoba sekali lagi.
+            }
+            return tryRead(uri, target) ?: firstError
+        }
+        return null
+    }
+
+    private fun tryRead(uri: Uri, target: File): String? {
+        return try {
+            val input = contentResolver.openInputStream(uri)
+                ?: return "penyedia tidak menyediakan berkas"
+            input.use { stream -> target.outputStream().use { out -> stream.copyTo(out) } }
+            null
+        } catch (t: Throwable) {
+            describe(t)
+        }
+    }
+
+    private fun describe(t: Throwable): String =
+        "${t.javaClass.simpleName}: ${t.message?.take(80) ?: "-"}"
 
     private fun displayName(uri: Uri): String {
         val fromProvider = try {
@@ -247,7 +280,8 @@ class MainActivity : AppCompatActivity() {
     private data class ImportOutcome(
         val result: ImportResult,
         val name: String,
-        val cueCount: Int
+        val cueCount: Int,
+        val reason: String = ""
     )
 
     private fun toggleOverlay() {
@@ -375,10 +409,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshFileInfo() {
         val path = Prefs.srtPath(this)
-        tvFile.text = if (path == null) {
-            getString(R.string.file_none)
-        } else {
-            getString(R.string.file_info_no_count, Prefs.srtName(this) ?: File(path).name)
+        val lastError = Prefs.lastError(this)
+        tvFile.text = when {
+            path != null -> getString(R.string.file_info_no_count, Prefs.srtName(this) ?: File(path).name)
+            lastError != null -> getString(R.string.read_failed_detail, lastError)
+            else -> getString(R.string.file_none)
         }
         tvPosition.text = formatTime(OverlayService.state.value.positionMs)
         tvOffset.text = formatOffset(Prefs.offsetMs(this))
