@@ -47,6 +47,8 @@
     <string name="toast_read_failed">Berkas tidak bisa dibuka. Coba pilih ulang dari folder Download.</string>
     <string name="toast_file_empty">Berkas yang dipilih kosong (0 byte).</string>
     <string name="toast_no_cues">Tidak ditemukan baris waktu subtitle di berkas ini. Format yang didukung: SRT (00:00:12,500 --&gt; 00:00:15,000) atau WebVTT. Berkas .ass/.ssa dan .zip belum didukung.</string>
+    <string name="toast_file_too_large">Berkas terlalu besar (lebih dari 40 MB). Pilih berkas subtitle saja, bukan video atau arsip.</string>
+    <string name="toast_service_start_failed">Layanan overlay tidak bisa dimulai di perangkat ini. Coba tutup lalu buka lagi aplikasinya.</string>
     <string name="toast_need_notif_access">Aktifkan akses notifikasi untuk Subtileawang, lalu kembali ke aplikasi ini.</string>
     <string name="toast_open_settings_failed">Pengaturan tidak bisa dibuka di perangkat ini.</string>
 

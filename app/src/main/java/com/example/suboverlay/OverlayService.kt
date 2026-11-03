@@ -67,9 +67,13 @@ class OverlayService : Service() {
         private val _state = MutableStateFlow(OverlayState())
         val state: StateFlow<OverlayState> = _state
 
-        fun start(ctx: Context) {
+        /** @return true bila permintaan memulai layanan diterima sistem. */
+        fun start(ctx: Context): Boolean = try {
             val intent = Intent(ctx, OverlayService::class.java).setAction(ACTION_START)
             ContextCompat.startForegroundService(ctx, intent)
+            true
+        } catch (_: Throwable) {
+            false
         }
 
         fun command(ctx: Context, action: String, deltaMs: Long = 0L) {
@@ -77,8 +81,8 @@ class OverlayService : Service() {
             if (deltaMs != 0L) intent.putExtra(EXTRA_DELTA_MS, deltaMs)
             try {
                 ctx.startService(intent)
-            } catch (_: IllegalStateException) {
-                // Service tidak aktif; abaikan perintah.
+            } catch (_: Throwable) {
+                // Layanan tidak bisa dimulai; jangan sampai menutup aplikasi.
             }
         }
     }
@@ -101,10 +105,17 @@ class OverlayService : Service() {
     private var lastSessionPoll: Long = 0L
     private var tickerRunning: Boolean = false
 
+    private var foregroundStarted = false
+
     private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() {
-            tick()
+            try {
+                tick()
+            } catch (t: Throwable) {
+                status = "Gagal memperbarui subtitle (${t.javaClass.simpleName})."
+                _state.value = _state.value.copy(status = status)
+            }
             handler.postDelayed(this, TICK_MS)
         }
     }
@@ -114,12 +125,20 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WindowManager::class.java)
-        createChannel()
+        runCatching { createChannel() }
         goForeground(manualRunning)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        if (!foregroundStarted) {
+            // Gagal menjadi layanan latar: hentikan diri supaya sistem tidak
+            // melempar RemoteServiceException ke proses aplikasi.
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        try {
+            when (intent?.action) {
             ACTION_STOP -> {
                 shutdown()
                 return START_NOT_STICKY
@@ -143,10 +162,14 @@ class OverlayService : Service() {
 
             ACTION_APPEARANCE -> applyAppearance()
 
-            else -> {
-                loadSubtitles()
-                showOverlay()
+                else -> {
+                    loadSubtitles()
+                    showOverlay()
+                }
             }
+        } catch (t: Throwable) {
+            status = "Gagal memproses perintah (${t.javaClass.simpleName})."
+            _state.value = _state.value.copy(status = status)
         }
 
         if (!tickerRunning) {
@@ -392,16 +415,23 @@ class OverlayService : Service() {
     // ---------------------------------------------------------- notification
 
     private fun goForeground(playing: Boolean) {
-        ServiceCompat.startForeground(
-            this,
-            NOTIF_ID,
-            buildNotification(playing),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            } else {
-                0
-            }
-        )
+        try {
+            ServiceCompat.startForeground(
+                this,
+                NOTIF_ID,
+                buildNotification(playing),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                } else {
+                    0
+                }
+            )
+            foregroundStarted = true
+        } catch (t: Throwable) {
+            foregroundStarted = false
+            status = "Layanan latar gagal dimulai (${t.javaClass.simpleName})."
+            _state.value = _state.value.copy(status = status)
+        }
     }
 
     private fun createChannel() {

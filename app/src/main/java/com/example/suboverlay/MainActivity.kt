@@ -19,11 +19,15 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+
+/** Batas ukuran berkas subtitle, agar membaca berkas besar tidak menghabiskan memori. */
+private const val MAX_SRT_BYTES = 40L * 1024 * 1024
 
 class MainActivity : AppCompatActivity() {
 
@@ -163,7 +167,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun importSubtitle(uri: Uri) {
         lifecycleScope.launch {
-            val outcome = withContext(Dispatchers.IO) { readSubtitle(uri) }
+            val outcome = try {
+                withContext(Dispatchers.IO) { readSubtitle(uri) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Kegagalan tak terduga harus jadi pesan, bukan menutup aplikasi.
+                ImportOutcome(ImportResult.READ_FAILED, "-", 0)
+            }
+
             when (outcome.result) {
                 ImportResult.OK -> {
                     tvFile.text = getString(R.string.file_info, outcome.name, outcome.cueCount)
@@ -172,6 +184,9 @@ class MainActivity : AppCompatActivity() {
 
                 ImportResult.EMPTY_FILE ->
                     Toast.makeText(this@MainActivity, R.string.toast_file_empty, Toast.LENGTH_LONG).show()
+
+                ImportResult.TOO_LARGE ->
+                    Toast.makeText(this@MainActivity, R.string.toast_file_too_large, Toast.LENGTH_LONG).show()
 
                 ImportResult.READ_FAILED ->
                     Toast.makeText(this@MainActivity, R.string.toast_read_failed, Toast.LENGTH_LONG).show()
@@ -191,19 +206,24 @@ class MainActivity : AppCompatActivity() {
             contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             } != null
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             false
         }
         if (!copied) return ImportOutcome(ImportResult.READ_FAILED, name, 0)
         if (target.length() == 0L) return ImportOutcome(ImportResult.EMPTY_FILE, name, 0)
+        if (target.length() > MAX_SRT_BYTES) return ImportOutcome(ImportResult.TOO_LARGE, name, 0)
 
         val raw = try {
             SrtParser.decode(target.readBytes())
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             return ImportOutcome(ImportResult.READ_FAILED, name, 0)
         }
 
-        val parsed = SrtParser.parse(raw)
+        val parsed = try {
+            SrtParser.parse(raw)
+        } catch (_: Throwable) {
+            return ImportOutcome(ImportResult.NO_CUES, name, 0)
+        }
         if (parsed.isEmpty()) return ImportOutcome(ImportResult.NO_CUES, name, 0)
 
         Prefs.setSrtPath(this, target.absolutePath)
@@ -216,13 +236,13 @@ class MainActivity : AppCompatActivity() {
             contentResolver
                 .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                 ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         }
         return fromProvider ?: uri.lastPathSegment ?: getString(R.string.file_default_name)
     }
 
-    private enum class ImportResult { OK, EMPTY_FILE, READ_FAILED, NO_CUES }
+    private enum class ImportResult { OK, EMPTY_FILE, TOO_LARGE, READ_FAILED, NO_CUES }
 
     private data class ImportOutcome(
         val result: ImportResult,
@@ -246,9 +266,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         askNotificationPermission()
-        OverlayService.start(this)
-        overlayVisible = true
-        renderToggleButton(true)
+        if (OverlayService.start(this)) {
+            overlayVisible = true
+            renderToggleButton(true)
+        } else {
+            Toast.makeText(this, R.string.toast_service_start_failed, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun changeOffset(deltaMs: Long) {
