@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Subtitle Overlay</string>
-    <string name="media_listener_label">Subtitle Overlay — pembaca posisi video</string>
+    <string name="app_name">Subtileawang</string>
+    <string name="media_listener_label">Subtileawang — pembaca posisi video</string>
 
     <string name="subtitle_hint">Tampilkan subtitle .srt/.vtt mengapung di atas UC Browser atau pemutar video lain. Overlay tidak menyentuh aplikasi yang ada di bawahnya.</string>
 
@@ -44,12 +44,12 @@
 
     <string name="toast_pick_file_first">Pilih berkas subtitle dulu.</string>
     <string name="toast_parse_failed">Berkas tidak bisa dibaca sebagai subtitle SRT/VTT.</string>
-    <string name="toast_need_notif_access">Aktifkan akses notifikasi untuk Subtitle Overlay, lalu kembali ke aplikasi ini.</string>
+    <string name="toast_need_notif_access">Aktifkan akses notifikasi untuk Subtileawang, lalu kembali ke aplikasi ini.</string>
     <string name="toast_open_settings_failed">Pengaturan tidak bisa dibuka di perangkat ini.</string>
 
     <string name="channel_name">Overlay subtitle</string>
     <string name="channel_description">Menjaga overlay subtitle tetap berjalan di atas aplikasi lain.</string>
-    <string name="notif_title">Subtitle overlay aktif</string>
+    <string name="notif_title">Subtileawang aktif</string>
     <string name="notif_text_idle">Tekan seret ikon ⠿ untuk memindahkan posisi subtitle.</string>
 
     <string name="footnote">Cara pakai: pilih subtitle → izinkan overlay → tampilkan → buka video di UC Browser → tekan “Putar jam manual” saat video mulai, atau aktifkan auto-sync bila tersedia. Seret ikon ⠿ di layar untuk mengatur posisi.</string>

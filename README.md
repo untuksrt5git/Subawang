@@ -1,4 +1,4 @@
-# Subtitle Overlay untuk UC Browser (Android)
+# Subtileawang untuk UC Browser (Android)
 
 Aplikasi Android kecil yang menampilkan teks subtitle **mengapung di atas aplikasi lain** —
 termasuk UC Browser saat memutar video. UC Browser tidak dimodifikasi sama sekali: subtitle
@@ -10,7 +10,7 @@ UC Browser (video)  ──►  lapisan bawah
         ▲
         │  tembus sentuhan (FLAG_NOT_TOUCHABLE)
         │
-Subtitle Overlay     ──►  lapisan atas: teks .srt/.vtt + pegangan seret ⠿
+Subtileawang     ──►  lapisan atas: teks .srt/.vtt + pegangan seret ⠿
 ```
 
 ## Fitur
@@ -56,9 +56,9 @@ BUILD SUCCESSFUL, tanpa warning Kotlin**, menghasilkan `app-debug.apk` (~5,5 MB)
 ## Cara pakai
 
 1. **Pilih berkas** `.srt`/`.vtt` (boleh dari folder Download).
-2. **Izinkan tampil di atas aplikasi lain** → aktifkan *Subtitle Overlay* di daftar
+2. **Izinkan tampil di atas aplikasi lain** → aktifkan *Subtileawang* di daftar
    *Display over other apps*.
-3. Opsional, untuk auto-sync: **Akses notifikasi** → aktifkan *Subtitle Overlay — pembaca posisi video*.
+3. Opsional, untuk auto-sync: **Akses notifikasi** → aktifkan *Subtileawang — pembaca posisi video*.
 4. Tekan **Tampilkan overlay**.
 5. Buka video di UC Browser (boleh fullscreen).
 6. Sinkronkan:
