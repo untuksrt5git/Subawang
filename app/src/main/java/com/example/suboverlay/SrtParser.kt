@@ -19,7 +19,8 @@ object SrtParser {
             """(?:(\d{1,3}):)?(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?"""
     )
     private val HTML_TAG = Regex("<[^>]*>")
-    private val ASS_TAG = Regex("""\{\\[^}]*}""")
+    // Raw string: satu backslash. Dua backslash ditolak mesin regex Android (ICU).
+    private val ASS_TAG = Regex("""\{[^}]*}""")
 
     fun parse(raw: String): List<Cue> {
         val text = raw
@@ -100,7 +101,8 @@ object SrtParser {
             .replace(HTML_TAG, "")
             .replace(ASS_TAG, "")
             .lines()
-            .joinToString("\n") { it.trim() }
+            // Tag yang dibuang meninggalkan spasi ganda; rapikan agar tampil bersih.
+            .joinToString("\n") { line -> line.split(' ').filter { it.isNotEmpty() }.joinToString(" ") }
             .trim()
 
     private fun toMs(hours: String, minutes: String, seconds: String, fraction: String): Long {
