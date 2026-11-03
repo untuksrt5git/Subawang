@@ -1,0 +1,56 @@
+<resources>
+    <string name="app_name">Subtitle Overlay</string>
+    <string name="media_listener_label">Subtitle Overlay — pembaca posisi video</string>
+
+    <string name="subtitle_hint">Tampilkan subtitle .srt/.vtt mengapung di atas UC Browser atau pemutar video lain. Overlay tidak menyentuh aplikasi yang ada di bawahnya.</string>
+
+    <string name="section_file">1. Berkas subtitle</string>
+    <string name="section_permission">2. Izin</string>
+    <string name="section_show">3. Tampilkan overlay</string>
+    <string name="section_sync">4. Sinkronisasi</string>
+    <string name="section_look">5. Tampilan</string>
+
+    <string name="btn_pick">Pilih berkas .srt / .vtt</string>
+    <string name="btn_overlay_perm">Izinkan tampil di atas aplikasi lain</string>
+    <string name="btn_notif_access">Buka pengaturan akses notifikasi</string>
+    <string name="btn_show_overlay">Tampilkan overlay</string>
+    <string name="btn_hide_overlay">Sembunyikan overlay</string>
+    <string name="btn_play">Putar jam manual</string>
+    <string name="btn_pause">Jeda jam manual</string>
+    <string name="btn_reset_offset">Reset offset</string>
+    <string name="btn_reset_clock">Reset ke 00:00</string>
+
+    <string name="file_none">Belum ada subtitle dipilih</string>
+    <string name="file_info">%1$s • %2$d cue</string>
+    <string name="file_info_no_count">%1$s</string>
+
+    <string name="perm_granted">Sudah diizinkan ✓</string>
+    <string name="perm_missing">Belum diizinkan</string>
+
+    <string name="notif_access_hint">Izin ini hanya dipakai untuk membaca posisi pemutaran video di aplikasi lain (MediaSession). Tanpa izin ini, gunakan jam manual di bawah.</string>
+    <string name="auto_follow">Ikuti pemutaran video secara otomatis</string>
+    <string name="auto_follow_hint">Butuh izin akses notifikasi. Kalau pemutar UC Browser tidak mempublikasikan posisi video, subtitle otomatis memakai jam manual.</string>
+    <string name="manual_hint">Jam manual: tekan “Putar” tepat saat video mulai, lalu koreksi dengan tombol offset bila subtitle bergeser.</string>
+
+    <string name="label_font">Ukuran teks</string>
+    <string name="label_vertical">Posisi vertikal</string>
+    <string name="label_background">Gelap latar</string>
+
+    <string name="now_empty">— belum ada teks —</string>
+    <string name="time_zero">00:00.0</string>
+    <string name="source_auto">auto • %1$s</string>
+    <string name="source_auto_missing">auto tidak tersedia</string>
+    <string name="source_manual">jam manual</string>
+
+    <string name="toast_pick_file_first">Pilih berkas subtitle dulu.</string>
+    <string name="toast_parse_failed">Berkas tidak bisa dibaca sebagai subtitle SRT/VTT.</string>
+    <string name="toast_need_notif_access">Aktifkan akses notifikasi untuk Subtitle Overlay, lalu kembali ke aplikasi ini.</string>
+    <string name="toast_open_settings_failed">Pengaturan tidak bisa dibuka di perangkat ini.</string>
+
+    <string name="channel_name">Overlay subtitle</string>
+    <string name="channel_description">Menjaga overlay subtitle tetap berjalan di atas aplikasi lain.</string>
+    <string name="notif_title">Subtitle overlay aktif</string>
+    <string name="notif_text_idle">Tekan seret ikon ⠿ untuk memindahkan posisi subtitle.</string>
+
+    <string name="footnote">Cara pakai: pilih subtitle → izinkan overlay → tampilkan → buka video di UC Browser → tekan “Putar jam manual” saat video mulai, atau aktifkan auto-sync bila tersedia. Seret ikon ⠿ di layar untuk mengatur posisi.</string>
+</resources>
