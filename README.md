@@ -40,6 +40,13 @@ Proyek sudah dilengkapi Gradle wrapper (Gradle 8.9), jadi tidak perlu memasang G
 Android Studio akan membuat `local.properties` berisi `sdk.dir=…` sendiri saat sync pertama
 (berkas itu di-.gitignore, jangan di-commit).
 
+### Build otomatis di GitHub Actions
+
+Setiap push ke `main` (dan setiap pull request) di-build oleh
+`.github/workflows/build-apk.yml`: JDK 17 + Gradle wrapper, lalu APK diunggah sebagai artifact
+`subtitle-overlay-debug-apk` di tab **Actions** (disimpan 30 hari). Tidak perlu memasang
+Android SDK di runner karena `setup-gradle` + AGP mengunduhnya sendiri.
+
 Build sudah diverifikasi bersih di CI lokal: **JDK 17 + Gradle 8.9 + AGP 8.7.3 + compileSdk 35 →
 BUILD SUCCESSFUL, tanpa warning Kotlin**, menghasilkan `app-debug.apk` (~5,5 MB).
 
